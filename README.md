@@ -8,7 +8,7 @@ A tool that watches a folder on your computer and automatically uploads any new 
 
 **Step 1 — Get the code**
 ```bash
-git clone https://github.com/your-username/TeleDumpMaster.git
+git clone https://github.com/nayaksomkar/TeleDumpMaster.git
 cd TeleDumpMaster
 ```
 
@@ -47,7 +47,7 @@ docker compose down
 
 ```bash
 # 1. Get the code
-git clone https://github.com/your-username/TeleDumpMaster.git
+git clone https://github.com/nayaksomkar/TeleDumpMaster.git
 cd TeleDumpMaster
 
 # 2. Set up your settings
