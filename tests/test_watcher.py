@@ -28,8 +28,8 @@ def test_watcher_process_once_sorted(tmp_path: Path) -> None:
     )
     fake = FakeUploader()
     watcher = Watcher(cfg, uploader=fake)
-    count = watcher.process_once()
-    assert count == 3
+    summary = watcher.process_once()
+    assert summary["files"] == 3
     assert [Path(p).name for p in fake.uploaded] == [
         "episode1.mkv",
         "episode2.mkv",

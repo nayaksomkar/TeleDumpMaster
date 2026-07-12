@@ -11,23 +11,28 @@ from teledumpmaster.config import Config
 from teledumpmaster.exceptions import ConfigurationError
 
 
+def _empty_dotenv(tmp_path: Path) -> Path:
+    """Return a path to a non-existent .env so real .env isn't picked up."""
+    return tmp_path / ".env.empty"
+
+
 def test_config_from_env_defaults(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("TELEDUMP_BOT_TOKEN", "tok")
     monkeypatch.setenv("TELEDUMP_CHANNEL_ID", "-1001")
     monkeypatch.setenv("TELEDUMP_UPLOAD_FOLDER", str(tmp_path))
-    cfg = Config.from_env()
+    cfg = Config.from_env(dotenv_path=_empty_dotenv(tmp_path))
     assert cfg.retries == 3
     assert cfg.poll_interval == 5.0
     assert cfg.post_action == "keep"
     assert cfg.upload_folder == tmp_path
 
 
-def test_config_missing_token_raises(monkeypatch) -> None:
+def test_config_missing_token_raises(tmp_path: Path, monkeypatch) -> None:
     for key in list(__import__("os").environ):
         if key.startswith("TELEDUMP_"):
             monkeypatch.delenv(key, raising=False)
     with pytest.raises(ConfigurationError):
-        Config.from_env()
+        Config.from_env(dotenv_path=_empty_dotenv(tmp_path))
 
 
 def test_config_rejects_bad_post_action(tmp_path: Path, monkeypatch) -> None:
@@ -36,7 +41,7 @@ def test_config_rejects_bad_post_action(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("TELEDUMP_UPLOAD_FOLDER", str(tmp_path))
     monkeypatch.setenv("TELEDUMP_POST_ACTION", "explode")
     with pytest.raises(ConfigurationError):
-        Config.from_env()
+        Config.from_env(dotenv_path=_empty_dotenv(tmp_path))
 
 
 def test_config_loads_dotenv(tmp_path: Path, monkeypatch) -> None:

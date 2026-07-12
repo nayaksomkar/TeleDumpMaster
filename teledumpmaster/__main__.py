@@ -1,3 +1,6 @@
+# Allow running as: python -m teledumpmaster
+# Simply delegates to the CLI entry point
+
 from __future__ import annotations
 
 import sys

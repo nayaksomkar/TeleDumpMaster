@@ -1,106 +1,93 @@
 # TeleDumpMaster
 
-A tool that watches a folder on your computer and automatically uploads any new files to a Telegram channel. Files are uploaded in the correct order (episode 1, then 2, then 3... not 1, 10, 11, 2).
+Watches a folder and auto-uploads files to a Telegram channel in natural order (episode 1 → 2 → 3, not 1 → 10 → 11).
 
 ---
 
-## How to use with Docker (easiest, runs 24/7)
+## Docker (runs 24/7)
 
-**Step 1 — Get the code**
 ```bash
 git clone https://github.com/nayaksomkar/TeleDumpMaster.git
 cd TeleDumpMaster
+cp .env.example .env          # then edit .env with your settings
+docker compose up -d           # start
+docker compose logs -f         # watch logs (Ctrl+C to exit, keeps running)
+docker compose down            # stop
 ```
 
-**Step 2 — Set up your settings**
-```bash
-cp .env.example .env
-```
-Now open the `.env` file with any text editor and fill in:
-- Your bot token (from @BotFather on Telegram)
-- Your channel ID (where files should be uploaded)
-- The folder path you want to watch
-
-**Step 3 — Start it**
-```bash
-docker compose up -d
-```
-
-**Step 4 — See what's happening**
-```bash
-docker compose logs -f
-```
-Press `Ctrl+C` to stop watching the logs. The tool keeps running.
-
-**Step 5 — Stop it**
-```bash
-docker compose down
-```
-
-> **Want to watch your own folder?** Open `docker-compose.yml` and replace `./uploads` with your folder path.
+> To watch your own folder, edit `docker-compose.yml` — change `./uploads` to your path.
 
 ---
 
-## How to use without Docker (just terminal)
+## Terminal (no Docker)
 
-**You'll need:** Python 3.11 or higher and pip (Python's package installer).
+**Requires:** Python 3.11+
 
 ```bash
-# 1. Get the code
 git clone https://github.com/nayaksomkar/TeleDumpMaster.git
 cd TeleDumpMaster
-
-# 2. Set up your settings
-cp .env.example .env
-# Open .env and put in your bot token, channel ID, and folder path
-
-# 3. Install everything
+cp .env.example .env           # then edit .env with your settings
 pip install -e .
-
-# 4. Run it (keeps watching until you stop it)
-teledumpmaster
-
-# Press Ctrl+C to stop
-
-# Or run once (upload everything and exit):
-teledumpmaster --once
+teledumpmaster                 # watch forever (Ctrl+C to stop)
+teledumpmaster --once          # upload everything once, then exit
 ```
 
 ---
 
-## Settings explained
+## Commands
 
-Everything goes in the `.env` file. Here's what each setting does:
+| Command | What it does |
+|---|---|
+| `teledumpmaster` | Watch & upload forever |
+| `--once` | Upload everything once, then exit |
+| `--dry-run` | List files that would upload, don't send |
+| `--no-progress` | Hide progress bar (clean for logs) |
+| `--log-level DEBUG` | Show detailed logs |
+| `--dotenv my.env` | Use a custom env file |
+| `--help` | Show all options |
 
-| Setting | Need it? | Default | What it does |
+---
+
+## What the output looks like
+
+```
+Uploading:  60%|████████    | 3/5 [00:12<00:08,  4.0s/file, file=episode3.mp4, size=15.2 MB, speed=3.8 MB/s]
+  ✓ episode1.mp4  (10.5 MB @ 5.2 MB/s)
+Done! Uploaded 3 file(s), 45.8 MB total, avg 3.8 MB/s, in 12.0s
+```
+
+The bar shows progress, ETA, current file name, size, and upload speed. The summary shows totals.
+
+---
+
+## Settings (in `.env`)
+
+| Setting | Required | Default | What it does |
 |---|---|---|---|
-| `TELEDUMP_BOT_TOKEN` | ✅ Yes | — | Your bot's secret key from @BotFather |
-| `TELEDUMP_CHANNEL_ID` | ✅ Yes | — | Where to upload (like `-1001234567890`) |
-| `TELEDUMP_UPLOAD_FOLDER` | ✅ Yes | — | Which folder to watch for new files |
-| `TELEDUMP_POLL_INTERVAL` | ❌ No | `5` | Check for new files every X seconds |
-| `TELEDUMP_RETRIES` | ❌ No | `3` | Try uploading again if it fails |
-| `TELEDUMP_TIMEOUT` | ❌ No | `60` | Wait X seconds before giving up on a file |
-| `TELEDUMP_POST_ACTION` | ❌ No | `keep` | What to do after upload: `keep` / `delete` / `archive` |
-| `TELEDUMP_CAPTION` | ❌ No | `""` | A message to send with every file |
-| `TELEDUMP_ARCHIVE_DIR` | ❌ No | `./archive` | Where to move files if action is `archive` |
-| `TELEDUMP_LOG_DIR` | ❌ No | `./logs` | Where to save upload history |
-| `TELEDUMP_LOG_FORMAT` | ❌ No | `json` | How to save history: `json` / `csv` / don't save |
+| `TELEDUMP_BOT_TOKEN` | ✅ | — | Bot token from @BotFather |
+| `TELEDUMP_CHANNEL_ID` | ✅ | — | Channel ID (use @getidsbot to find it) |
+| `TELEDUMP_UPLOAD_FOLDER` | ✅ | — | Folder to watch for files |
+| `TELEDUMP_POLL_INTERVAL` | ❌ | `5` | Check every X seconds |
+| `TELEDUMP_RETRIES` | ❌ | `3` | Retry failed uploads this many times |
+| `TELEDUMP_TIMEOUT` | ❌ | `60` | Give up after X seconds |
+| `TELEDUMP_POST_ACTION` | ❌ | `keep` | `keep`, `delete`, or `archive` after upload |
+| `TELEDUMP_CAPTION` | ❌ | `""` | Caption sent with every file |
+| `TELEDUMP_ARCHIVE_DIR` | ❌ | `./archive` | Where to move files if action is `archive` |
+| `TELEDUMP_LOG_DIR` | ❌ | `./logs` | Where upload history is saved |
+| `TELEDUMP_LOG_FORMAT` | ❌ | `json` | Log format: `json`, `csv`, or `none` |
 
 ---
 
-## Project files
+## Troubleshooting
 
-```
-teledumpmaster/     → The main code
-tests/              → Test files
-.env.example        → Settings template (copy to .env)
-Dockerfile          → For building Docker image
-docker-compose.yml  → For running with Docker
-```
+- **"chat not found"** — Add bot as admin to the channel. Check channel ID (use @getidsbot).
+- **"bot token is required"** — You forgot to fill `.env`. Set `TELEDUMP_BOT_TOKEN=your_token`.
+- **Progress bar garbled in Docker** — Add `--no-progress` to `docker-compose.yml`.
+- **Files not picked up** — Check the folder path exists. Already-uploaded files are skipped.
 
 ---
 
-## For developers
+## Dev
 
 ```bash
 uv sync --extra dev

@@ -13,9 +13,9 @@ def test_json_recorder(tmp_path: Path) -> None:
     rec = UploadRecorder(tmp_path, "json")
     rec.record("/a/file.mkv", {"ok": True, "result": {"message_id": 42}})
     rec.record("/a/file2.mkv", {"ok": True, "result": {"message_id": 43}})
-    lines = (tmp_path / "uploads.json").read_text().splitlines()
-    assert len(lines) == 2
-    assert json.loads(lines[0])["message_id"] == 42
+    data = json.loads((tmp_path / "uploads.json").read_text())
+    assert len(data) == 2
+    assert data[0]["message_id"] == 42
 
 
 def test_csv_recorder_writes_header_once(tmp_path: Path) -> None:
