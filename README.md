@@ -19,6 +19,21 @@ docker compose down            # stop
 
 ---
 
+## Big files (upload up to 2000 MB)
+
+By default Telegram limits uploads to **50 MB**. To upload larger files (up to 2000 MB), run a local Bot API server:
+
+1. Set up [teleLocalBotapiServer](https://github.com/nayaksomkar/teleLocalBotapiServer) in Docker or natively
+2. Add this line to your `.env`:
+
+```
+TELEDUMP_API_BASE=http://localhost:8081
+```
+
+TeleDumpMaster will now send all API requests to your local server instead of `api.telegram.org`. Remove the line to switch back to the official API.
+
+---
+
 ## Terminal (no Docker)
 
 **Requires:** Python 3.11+
@@ -89,6 +104,7 @@ The top bar tracks overall file progress. During each upload, a per-file byte-le
 | `TELEDUMP_ARCHIVE_DIR` | ❌ | `./archive` | Where to move files if action is `archive` |
 | `TELEDUMP_LOG_DIR` | ❌ | `./logs` | Where upload history is saved |
 | `TELEDUMP_LOG_FORMAT` | ❌ | `json` | Log format: `json`, `csv`, or `none` |
+| `TELEDUMP_API_BASE` | ❌ | `https://api.telegram.org` | API base URL. Set to `http://localhost:8081` to use a [local Bot API server](https://github.com/nayaksomkar/teleLocalBotapiServer) (2000 MB uploads). Omit to use the official Telegram API |
 
 ---
 

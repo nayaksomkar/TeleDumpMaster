@@ -4,8 +4,7 @@
 from __future__ import annotations
 
 import time
-import uuid
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +13,8 @@ import requests
 from .config import Config
 from .exceptions import UploadError
 
-API_BASE = "https://api.telegram.org/bot{token}/{method}"
-_CHUNK_SIZE = 65536  # 64 KB per read — smooth progress updates without excessive overhead
+_CHUNK_SIZE = 4 * 1024 * 1024  # 4 MB — each chunk read takes ~4ms at SSD speed,
+# giving the Rich render thread enough time to redraw between chunks
 
 
 class TelegramUploader:
@@ -29,36 +28,6 @@ class TelegramUploader:
         self.config = config
         self.session = requests.Session()
 
-    def _multipart_body(
-        self,
-        filepath: Path,
-        fields: dict[str, str],
-        boundary: str,
-        on_bytes: Callable[[int], None] | None,
-    ) -> Generator[bytes, None, None]:
-        yield f"--{boundary}\r\n".encode()
-        for key, value in fields.items():
-            yield (
-                f'Content-Disposition: form-data; name="{key}"\r\n'
-                f"\r\n"
-                f"{value}\r\n"
-                f"--{boundary}\r\n"
-            ).encode()
-        yield (
-            f'Content-Disposition: form-data; name="document"; filename="{filepath.name}"\r\n'
-            f"Content-Type: application/octet-stream\r\n"
-            f"\r\n"
-        ).encode()
-        with filepath.open("rb") as f:
-            while True:
-                chunk = f.read(_CHUNK_SIZE)
-                if not chunk:
-                    break
-                yield chunk
-                if on_bytes:
-                    on_bytes(len(chunk))
-        yield f"\r\n--{boundary}--\r\n".encode()
-
     def send_document(
         self,
         filepath: str | Path,
@@ -67,8 +36,10 @@ class TelegramUploader:
     ) -> dict[str, Any]:
         """Upload a single file to Telegram.
 
-        If on_bytes is provided, it is called with the number of bytes yielded
-        to the HTTP layer (real-time during network send).
+        When on_bytes is provided the file is read in 4 MB chunks so the
+        progress callback fires at disk-I/O speed.  Each read() call releases
+        the GIL inside CPython, letting the Rich display thread redraw the
+        progress bar between chunks.
 
         Retries on transient failures using exponential backoff (1s, 2s, 4s…).
         Returns the Telegram API response dict, which includes file size info
@@ -77,6 +48,7 @@ class TelegramUploader:
         Raises UploadError if all attempts fail.
         """
         filepath = Path(filepath)
+        api_url = f"{self.config.api_base}/bot{self.config.bot_token}/sendDocument"
         caption = caption if caption is not None else self.config.caption
         if caption == "__FILENAME__":
             caption = filepath.name
@@ -86,13 +58,21 @@ class TelegramUploader:
         for attempt in range(1, self.config.retries + 1):
             start = time.monotonic()
             try:
-                boundary = uuid.uuid4().hex
-                fields = {"chat_id": self.config.channel_id, "caption": caption or ""}
-                body = self._multipart_body(filepath, fields, boundary, on_bytes)
-                response = self.session.post(
-                    API_BASE.format(token=self.config.bot_token, method="sendDocument"),
-                    data=body,
-                    headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+                if on_bytes:
+                    chunks: list[bytes] = []
+                    with filepath.open("rb") as f:
+                        while True:
+                            chunk = f.read(_CHUNK_SIZE)
+                            if not chunk:
+                                break
+                            chunks.append(chunk)
+                            on_bytes(len(chunk))
+                    file_data: bytes = b"".join(chunks)
+                else:
+                    file_data = filepath.read_bytes()
+                response = self.session.post(api_url,
+                    data={"chat_id": self.config.channel_id, "caption": caption or ""},
+                    files={"document": (filepath.name, file_data)},
                     timeout=self.config.timeout,
                 )
                 elapsed = time.monotonic() - start
