@@ -1,5 +1,5 @@
 # Folder watcher — scans, sorts, and uploads new files.
-# Reports progress via callbacks so the CLI can display a beautiful progress bar.
+# Reports progress via callbacks so the CLI can display beautiful progress bars.
 
 from __future__ import annotations
 
@@ -57,11 +57,16 @@ class Watcher:
         self,
         on_upload: Callable[[str, dict[str, Any]], None] | None = None,
         on_progress: Callable[[dict[str, Any]], None] | None = None,
+        on_bytes: Callable[[int], None] | None = None,
     ) -> dict[str, Any]:
         """Upload all pending files once.
 
         For each file, calls on_progress(state_dict) where state_dict has:
-          - current, total, file, size, speed, elapsed
+          - status: "uploading" or "done"
+          - current, total, file, size, speed, elapsed, action
+
+        If on_bytes is provided, it is forwarded to the uploader for per-byte
+        progress tracking.
 
         Returns summary: {files, total_size, total_time, avg_speed}
         """
@@ -73,22 +78,35 @@ class Watcher:
         total_time = 0.0
 
         for i, filepath in enumerate(files):
-            result = self.uploader.send_document(filepath)
+            fpath = Path(filepath)
+            fsize_before = fpath.stat().st_size
+
+            if on_progress:
+                on_progress({
+                    "status": "uploading",
+                    "current": i + 1,
+                    "total": len(files),
+                    "file": fpath.name,
+                    "size": fsize_before,
+                })
+
+            result = self.uploader.send_document(filepath, on_bytes=on_bytes)
             meta = result.get("_meta", {})
-            fsize = meta.get("file_size", 0)
+            fsize = meta.get("file_size", fsize_before)
             elapsed = meta.get("elapsed_sec", 0)
 
             total_size += fsize
             total_time += elapsed
 
             self._uploaded.add(filepath)
-            action_result = self._post_action(Path(filepath))
+            action_result = self._post_action(fpath)
 
             if on_progress:
                 on_progress({
+                    "status": "done",
                     "current": i + 1,
                     "total": len(files),
-                    "file": Path(filepath).name,
+                    "file": fpath.name,
                     "size": fsize,
                     "speed": fsize / elapsed if elapsed > 0 else 0,
                     "elapsed": elapsed,
@@ -106,7 +124,11 @@ class Watcher:
             "avg_speed": round(avg, 2),
         }
 
-    def run_forever(self, on_upload: Callable[[str, dict[str, Any]], None] | None = None) -> None:
+    def run_forever(
+        self,
+        on_upload: Callable[[str, dict[str, Any]], None] | None = None,
+        on_bytes: Callable[[int], None] | None = None,
+    ) -> None:
         """Watch the upload folder in an infinite loop, sleeping between scans.
 
         Press Ctrl+C to stop gracefully.
@@ -114,7 +136,7 @@ class Watcher:
         logger.info("Watching %s every %ss", self.config.upload_folder, self.config.poll_interval)
         try:
             while True:
-                summary = self.process_once(on_upload=on_upload)
+                summary = self.process_once(on_upload=on_upload, on_bytes=on_bytes)
                 if summary["files"]:
                     logger.info(
                         "Cycle done: %d file(s), %s, avg %s",

@@ -60,12 +60,17 @@ teledumpmaster --once --caption       # upload once with filenames as captions
 ## What the output looks like
 
 ```
-Uploading:  60%|████████    | 3/5 [00:12<00:08,  4.0s/file, file=episode3.mp4, size=15.2 MB, speed=3.8 MB/s]
+Scanning folder: /home/user/uploads
+Overall ████████████░░░░░░ 60% 0:12 < 0:08
+episode1.mp4 ████████████████ 100% 0:05 < 0:00
   ✓ episode1.mp4  (10.5 MB @ 5.2 MB/s)
-Done! Uploaded 3 file(s), 45.8 MB total, avg 3.8 MB/s, in 12.0s
+Overall ████████████████████ 100% 0:18 < 0:00
+  ✓ episode2.mp4  (20.1 MB @ 3.1 MB/s)  (deleted)
+
+Done! Uploaded 2 file(s), 30.6 MB total, avg 4.2 MB/s, in 18.0s
 ```
 
-The bar shows progress, ETA, current file name, size, and upload speed. The summary shows totals.
+The top bar tracks overall file progress. During each upload, a per-file byte-level progress bar shows the filename and upload progress. Completed files show a green checkmark with size, speed, and action tag (`(deleted)`, `(archived)`). The summary shows totals.
 
 ---
 

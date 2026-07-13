@@ -12,7 +12,10 @@ class FakeUploader:
     def __init__(self) -> None:
         self.uploaded: list[str] = []
 
-    def send_document(self, filepath, caption=None):
+    def send_document(self, filepath, caption=None, on_bytes=None):
+        if on_bytes:
+            fsize = Path(filepath).stat().st_size
+            on_bytes(fsize)
         self.uploaded.append(str(filepath))
         return {"ok": True, "result": {"message_id": len(self.uploaded)}}
 

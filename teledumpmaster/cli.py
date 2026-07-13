@@ -38,9 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
             "  teledumpmaster --once              Upload everything and exit\n"
             "  teledumpmaster --dry-run           Show what would be uploaded\n"
             "  teledumpmaster --no-progress       Run without progress bar (for CI/logs)\n"
+            "  teledumpmaster --caption           Use filename as caption\n"
+            "  teledumpmaster --caption \"text\"    Custom caption for all files\n"
             "  teledumpmaster --log-level DEBUG   Verbose output for debugging\n"
-            "  teledumpmaster --caption              Use filename as caption\n"
-            "  teledumpmaster --caption \"My caption\"  Custom caption for all files\n"
             "  teledumpmaster --dotenv /path/to/.env  Use a custom config file\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -99,13 +99,11 @@ def _run_dry_run(watcher: Watcher) -> int:
 
 
 def _run_with_progress(watcher: Watcher, on_upload: Any) -> dict[str, Any]:
-    """Run once with a beautiful Rich progress bar."""
+    """Run once with dual progress bars — overall files + per-file bytes."""
     columns = [
-        TextColumn("[bold blue]Uploading", justify="right"),
+        TextColumn("[progress.description]{task.description}"),
         BarColumn(bar_width=40),
         TaskProgressColumn(),
-        TextColumn("[bold]{task.fields[name]}"),
-        TextColumn("[dim]({task.fields[size]} @ {task.fields[speed]})[/]"),
         TimeElapsedColumn(),
         TextColumn("<"),
         TimeRemainingColumn(),
@@ -118,18 +116,31 @@ def _run_with_progress(watcher: Watcher, on_upload: Any) -> dict[str, Any]:
         return {"files": 0, "total_size": 0, "total_time": 0, "avg_speed": 0}
 
     with Progress(*columns, console=console) as progress:
-        task = progress.add_task("", total=total, name="", size="", speed="")
+        file_task = progress.add_task("[bold]Overall", total=total)
+        byte_task = progress.add_task("", total=0, visible=False)
+
+        def on_bytes(n: int) -> None:
+            progress.update(byte_task, advance=n)
 
         def on_progress(state: dict[str, Any]) -> None:
+            if state.get("status") == "uploading":
+                fsize = state["size"]
+                # Show per-file bar
+                progress.update(
+                    byte_task,
+                    description=f"[cyan]{state['file']}[/]",
+                    total=fsize,
+                    completed=0,
+                    visible=True,
+                )
+                return
+
+            # Status is "done"
+            progress.update(byte_task, visible=False)
+            progress.advance(file_task)
+
             size_str = _format_size(state["size"])
-            speed_str = _format_speed(state["size"], state["elapsed"])
-            progress.update(
-                task,
-                advance=1,
-                name=state["file"],
-                size=size_str,
-                speed=speed_str,
-            )
+            speed_str = _format_speed(state["size"], state.get("elapsed", 0))
             action_tag = ""
             if state.get("action") == "deleted":
                 action_tag = " [red](deleted)[/]"
@@ -138,7 +149,11 @@ def _run_with_progress(watcher: Watcher, on_upload: Any) -> dict[str, Any]:
             label = f"[bold]{state['file']}[/]  ([dim]{size_str} @ {speed_str}[/]){action_tag}"
             console.print(f"  [green]✓[/] {label}")
 
-        return watcher.process_once(on_upload=on_upload, on_progress=on_progress)
+        return watcher.process_once(
+            on_upload=on_upload,
+            on_progress=on_progress,
+            on_bytes=on_bytes,
+        )
 
 
 def _run_plain(watcher: Watcher, on_upload: Any) -> dict[str, Any]:
