@@ -39,6 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  teledumpmaster --dry-run           Show what would be uploaded\n"
             "  teledumpmaster --no-progress       Run without progress bar (for CI/logs)\n"
             "  teledumpmaster --log-level DEBUG   Verbose output for debugging\n"
+            "  teledumpmaster --caption              Use filename as caption\n"
+            "  teledumpmaster --caption \"My caption\"  Custom caption for all files\n"
             "  teledumpmaster --dotenv /path/to/.env  Use a custom config file\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -65,6 +67,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--log-level", default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="set console log verbosity (default: INFO)",
+    )
+
+    parser.add_argument(
+        "--caption", nargs="?", const="__FILENAME__", default=None, metavar="TEXT",
+        help="caption sent with every file (use without value to caption with filename)",
     )
 
     parser.add_argument(
@@ -144,6 +151,9 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigurationError as exc:
         logging.error("Configuration error: %s", exc)
         return 2
+
+    if args.caption is not None:
+        config.caption = args.caption
 
     watcher = Watcher(config)
     recorder = UploadRecorder(config.log_dir, config.log_format)

@@ -38,6 +38,8 @@ class TelegramUploader:
         """
         filepath = Path(filepath)
         caption = caption if caption is not None else self.config.caption
+        if caption == "__FILENAME__":
+            caption = filepath.name
         last_error: Exception | None = None
         file_size = filepath.stat().st_size  # bytes
 

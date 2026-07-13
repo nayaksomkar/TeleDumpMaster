@@ -43,8 +43,17 @@ teledumpmaster --once          # upload everything once, then exit
 | `--dry-run` | List files that would upload, don't send |
 | `--no-progress` | Hide progress bar (clean for logs) |
 | `--log-level DEBUG` | Show detailed logs |
+| `--caption` | Use each file's name as its caption |
+| `--caption "text"` | Set a custom caption for all files |
 | `--dotenv my.env` | Use a custom env file |
 | `--help` | Show all options |
+
+Examples:
+```bash
+teledumpmaster --caption              # file "song.mp3" → caption "song.mp3"
+teledumpmaster --caption "My file"    # every file gets caption "My file"
+teledumpmaster --once --caption       # upload once with filenames as captions
+```
 
 ---
 
