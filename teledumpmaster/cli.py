@@ -130,7 +130,12 @@ def _run_with_progress(watcher: Watcher, on_upload: Any) -> dict[str, Any]:
                 size=size_str,
                 speed=speed_str,
             )
-            label = f"[bold]{state['file']}[/]  ([dim]{size_str} @ {speed_str}[/])"
+            action_tag = ""
+            if state.get("action") == "deleted":
+                action_tag = " [red](deleted)[/]"
+            elif state.get("action") == "archived":
+                action_tag = " [yellow](archived)[/]"
+            label = f"[bold]{state['file']}[/]  ([dim]{size_str} @ {speed_str}[/]){action_tag}"
             console.print(f"  [green]✓[/] {label}")
 
         return watcher.process_once(on_upload=on_upload, on_progress=on_progress)

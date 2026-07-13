@@ -82,7 +82,7 @@ class Watcher:
             total_time += elapsed
 
             self._uploaded.add(filepath)
-            self._post_action(Path(filepath))
+            action_result = self._post_action(Path(filepath))
 
             if on_progress:
                 on_progress({
@@ -92,6 +92,7 @@ class Watcher:
                     "size": fsize,
                     "speed": fsize / elapsed if elapsed > 0 else 0,
                     "elapsed": elapsed,
+                    "action": action_result,
                 })
 
             if on_upload:
@@ -125,14 +126,19 @@ class Watcher:
         except KeyboardInterrupt:
             logger.info("Stopped by user")
 
-    def _post_action(self, filepath: Path) -> None:
-        """Apply the configured action after a successful upload."""
+    def _post_action(self, filepath: Path) -> str | None:
+        """Apply the configured action after a successful upload.
+        Returns a short label describing what happened (or None for keep).
+        """
         action = self.config.post_action
         if action == "delete":
             filepath.unlink(missing_ok=True)
-            logger.debug("Deleted %s", filepath.name)
-        elif action == "archive":
+            logger.info("Deleted %s", filepath.name)
+            return "deleted"
+        if action == "archive":
             self.config.archive_dir.mkdir(parents=True, exist_ok=True)
             target = self.config.archive_dir / filepath.name
             filepath.rename(target)
-            logger.debug("Archived %s -> %s", filepath.name, target)
+            logger.info("Archived %s", filepath.name)
+            return "archived"
+        return None
